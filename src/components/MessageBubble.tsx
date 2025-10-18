@@ -7,9 +7,8 @@ export default function MessageBubble(props: { message: MessageDTO }) {
     const roleStyle =
         role === "user" ?
         "self-end bg-red-600 border-red-500" :
-        role === "chatbot" ? 
-        "self-start bg-blue-600 border-blue-500" :
-        "self-center bg-grey-600 border-grey-500";
+        "self-start bg-blue-600 border-blue-500";
+
 
     return (
         <div

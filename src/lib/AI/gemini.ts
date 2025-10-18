@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import { generalPrefix } from "./prompts";
+import { generalPrefix, sceneProcessPrefix } from "./prompts";
+import { retrieveScenes } from "../rag";
 
 const MODEL_CODE = "gemini-2.5-flash-lite";
 
@@ -43,6 +44,16 @@ async function* passPromptToGeminiStreaming(prompt: string) {
 export async function processGeneralPrompt(prompt: string) {
   const fullPrompt = generalPrefix + prompt;
 
+  const reply = await passPromptToGemini(fullPrompt);
+
+  return reply;
+}
+
+export async function processRAGPrompt(prompt: string, ragRequest: string) {
+  const {keywords} = JSON.parse(ragRequest);
+  const scenes = retrieveScenes(keywords);
+
+  const fullPrompt = `${sceneProcessPrefix} scene data: ${JSON.stringify(scenes)}` + `user prompt: ${prompt}`;
   const reply = await passPromptToGemini(fullPrompt);
 
   return reply;
