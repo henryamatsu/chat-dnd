@@ -5,9 +5,11 @@ export default function MessageBubble(props: { message: MessageDTO }) {
     const { role, text } = message;
 
     const roleStyle =
-        role === "user"
-            ? "self-end bg-red-600 border-red-500"
-            : "self-start bg-blue-600 border-blue-500";
+        role === "user" ?
+        "self-end bg-red-600 border-red-500" :
+        role === "chatbot" ? 
+        "self-start bg-blue-600 border-blue-500" :
+        "self-center bg-grey-600 border-grey-500";
 
     return (
         <div

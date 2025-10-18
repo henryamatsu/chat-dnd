@@ -1,13 +1,13 @@
 "use server";
 
-import { passPromptToGemini } from "./AI/gemini";
+import { processGeneralPrompt } from "./AI/gemini";
 import { MessageDTO } from "./dtos";
 
 export async function queryMessageReply(message: MessageDTO) {
-    console.log(message);
+    const replyText = await processGeneralPrompt(message.text);
 
-    const replyText = await passPromptToGemini(message.text);
+    const role = replyText.startsWith("{") ? "system" : "chatbot"
 
-    const reply: MessageDTO = { role: "model", text: replyText};
+    const reply: MessageDTO = { role, text: replyText};
     return reply;
 }
