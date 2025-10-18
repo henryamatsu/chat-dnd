@@ -49,7 +49,7 @@ export async function processGeneralPrompt(prompt: string) {
   return reply;
 }
 
-export async function processRAGPrompt(prompt: string, ragRequest: string) {
+export async function processSceneRAGPrompt(prompt: string, ragRequest: string) {
   const {keywords} = JSON.parse(ragRequest);
   const scenes = retrieveScenes(keywords);
 

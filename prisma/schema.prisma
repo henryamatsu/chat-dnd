@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  chatbot
+}
+
+model Message {
+  id         Int    @id @default(autoincrement())
+  campaignId Int
+  number     Int
+  text       String
+  role       Role
+}
+
+model Scene {
+  id         Int            @id @default(autoincrement())
+  campaignId Int
+  number     Int
+  text       String
+  keywords   SceneKeyword[] // relation
+}
+
+model Keyword {
+  id     Int            @id @default(autoincrement())
+  text   String         @unique
+  scenes SceneKeyword[]
+}
+
+model SceneKeyword {
+  sceneId   Int
+  keywordId Int
+
+  scene   Scene   @relation(fields: [sceneId], references: [id])
+  keyword Keyword @relation(fields: [keywordId], references: [id])
+
+  @@id([sceneId, keywordId]) // composite primary key
+}

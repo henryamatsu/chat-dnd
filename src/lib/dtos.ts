@@ -1,6 +1,6 @@
-import { Role } from "./types"
+import { Role } from "@/generated/prisma";
 
 export type MessageDTO = {
-    role: Role,
-    text: string
-}
+  role: Role;
+  text: string;
+};
