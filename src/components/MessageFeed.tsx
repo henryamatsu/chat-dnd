@@ -4,24 +4,10 @@ import { MessageDTO } from "@/lib/dtos";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import { useEffect, useState } from "react";
-import { queryMessageResponse } from "@/lib/serverActions";
+import { queryMessageReply } from "@/lib/serverActions";
 
 export default function MessageFeed() {
     let [messages, setMessages] = useState<MessageDTO[]>([]);
-
-    useEffect(() => {
-        const dummyMessages: MessageDTO[] = [
-            { role: "user", text: "Hi There!" },
-            { role: "model", text: "Howdy Pardner" },
-            { role: "user", text: "Stick 'em up" },
-            { role: "model", text: "I'm Dirty Dan" },
-        ];
-
-        setMessages(dummyMessages);
-    }, []);
-
-
-
 
     async function onSend(text: string) {
         const message: MessageDTO = {
@@ -30,7 +16,7 @@ export default function MessageFeed() {
         };
 
         setMessages(prev => [...prev, message]);
-        const reply = await queryMessageResponse(message);
+        const reply = await queryMessageReply(message);
         setMessages(prev => [...prev, reply]);
     }
 

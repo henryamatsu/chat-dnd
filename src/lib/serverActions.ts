@@ -1,10 +1,13 @@
 "use server";
 
+import { passPromptToGemini } from "./AI/gemini";
 import { MessageDTO } from "./dtos";
 
-export async function queryMessageResponse(message: MessageDTO) {
+export async function queryMessageReply(message: MessageDTO) {
     console.log(message);
 
-    const reply: MessageDTO = { role: "model", text: "wow that's so smart"};
+    const replyText = await passPromptToGemini(message.text);
+
+    const reply: MessageDTO = { role: "model", text: replyText};
     return reply;
 }
