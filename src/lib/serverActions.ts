@@ -1,17 +1,28 @@
 "use server";
 // I'm basically going to treat this as a router file, and put the business logic in a separate controller file(s)
 
-
 import { processGeneralPrompt, processSceneRAGPrompt } from "./AI/gemini";
-import { MessageDTO } from "./dtos";
+import {
+  createMessage,
+  findRecentMessages,
+} from "./controllers/messageController";
 
-export async function queryMessageReply(message: MessageDTO) {
-    let replyText = await processGeneralPrompt(message.text);
+export async function getRecentMessages() {
+  const messages = await findRecentMessages();
+  return messages;
+}
 
-    if (replyText.startsWith("{")) {
-        replyText = await processSceneRAGPrompt(message.text, replyText);
-    }
+export async function queryMessageReply(text: string) {
+  let reply = await processGeneralPrompt(text);
 
-    const reply: MessageDTO = { role: "chatbot", text: replyText};
-    return reply;
+  if (reply.startsWith("{")) {
+    reply = await processSceneRAGPrompt(text, reply);
+  }
+
+  await createMessage(text, "user");
+  await createMessage(reply, "chatbot");
+
+  const messages = await getRecentMessages();
+
+  return messages;
 }

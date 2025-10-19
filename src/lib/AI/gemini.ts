@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { generalPrefix, sceneProcessPrefix } from "./prompts";
+import { findRecentMessages } from "../controllers/messageController";
 import { retrieveScenes } from "../rag";
 
 const MODEL_CODE = "gemini-2.5-flash-lite";
@@ -42,19 +42,80 @@ async function* passPromptToGeminiStreaming(prompt: string) {
 }
 
 export async function processGeneralPrompt(prompt: string) {
-  const fullPrompt = generalPrefix + prompt;
+  const fullPrompt = `${addGeneralInstruction()}
+  ${addSceneFetchInstruction()}
+  ${await addRecentMessages()}
+  ${addCurrentPrompt(prompt)}`;
 
   const reply = await passPromptToGemini(fullPrompt);
-
   return reply;
 }
 
-export async function processSceneRAGPrompt(prompt: string, ragRequest: string) {
-  const {keywords} = JSON.parse(ragRequest);
+export async function processSceneRAGPrompt(
+  prompt: string,
+  ragRequest: string
+) {
+  const fullPrompt = `${addGeneralInstruction()}
+  ${await addRecentMessages()}
+  ${await addPastScenes(ragRequest)}
+  ${addPostRAGInstruction()}
+  ${addCurrentPrompt(prompt)}`;
+
+  const reply = await passPromptToGemini(fullPrompt);
+  return reply;
+}
+
+function addGeneralInstruction() {
+  const promptSegment = `You are the game master for a ttrpg.`;
+  return promptSegment;
+}
+
+function addCurrentPrompt(prompt: string) {
+  const promptSegment = `Current Prompt: ${prompt}`;
+  return promptSegment;
+}
+
+async function addRecentMessages() {
+  const recentMessages = await findRecentMessages();
+  let promptSegment = "";
+
+  if (recentMessages.length > 0) {
+    const simpleMessages = recentMessages
+      .map((message) => `${message.role}: ${message.text}`)
+      .join("\n");
+    promptSegment = `${"Recent Messages: " + simpleMessages}`;
+  }
+
+  return promptSegment;
+}
+
+async function addPastScenes(ragRequest: string) {
+  const { keywords, reasoning } = JSON.parse(ragRequest);
   const scenes = retrieveScenes(keywords);
+  // console.log(`Prompt: ${prompt}\n\n Reasoning: ${reasoning}\n\n`);
+  // ${JSON.stringify(scenes)} replace dummy scene with this
+  const fullPrompt = `Past Scenes: {number: 1, text: "The hero Jethro is in a cave infested with goblins", keywords: ["cave", "goblin"]}`;
 
-  const fullPrompt = `${sceneProcessPrefix} scene data: ${JSON.stringify(scenes)}` + `user prompt: ${prompt}`;
-  const reply = await passPromptToGemini(fullPrompt);
-
-  return reply;
+  return fullPrompt;
 }
+
+function addSceneFetchInstruction() {
+  const promptSegment = `Referecing Past Scenes: If the user asks about events or story details not covered by recent messages or recent scenes, you should respond purely with JSON to request system info:
+
+{"keywords": [], "reasoning": string}
+
+You should extract keywords from the user's prompt, and put them in the keywords array. All keywords should be singular.
+If you are requesting system info, you should include nothing else in your message except for this JSON. Do not wrap your response in markdown.`;
+
+  return promptSegment;
+}
+
+function addPostRAGInstruction() {
+  const promptSegment = `Inventing Details: If the user asks events or story details not covered by recent messages, recent scenes or past scenes, you should do the following:
+1. if the player is asking about the current scene, invent details
+2. If the player is asking about past events, say you don't know`;
+
+  return promptSegment;
+}
+
+function addActionDifficultyInstruction() {}
