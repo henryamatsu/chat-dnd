@@ -5,3 +5,9 @@ export type MessageDTO = {
   role: Role;
   text: string;
 };
+
+export type SceneDTO = {
+  id?: number;
+  text: string;
+  keywords: string[];
+};

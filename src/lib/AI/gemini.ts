@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
-import { findRecentMessages } from "../controllers/messageController";
+import {
+  getMessageCount,
+  findRecentMessages,
+} from "../controllers/messageController";
 import { retrieveScenes } from "../rag";
+import { findRecentScenes } from "../controllers/sceneController";
 
 const MODEL_CODE = "gemini-2.5-flash-lite";
 
@@ -44,6 +48,7 @@ async function* passPromptToGeminiStreaming(prompt: string) {
 export async function processGeneralPrompt(prompt: string) {
   const fullPrompt = `${addGeneralInstruction()}
   ${addSceneFetchInstruction()}
+  ${await addRecentScenes()}
   ${await addRecentMessages()}
   ${addCurrentPrompt(prompt)}`;
 
@@ -55,7 +60,10 @@ export async function processSceneRAGPrompt(
   prompt: string,
   ragRequest: string
 ) {
+  console.log("performing scene lookup");
+
   const fullPrompt = `${addGeneralInstruction()}
+  ${await addRecentScenes()}
   ${await addRecentMessages()}
   ${await addPastScenes(ragRequest)}
   ${addPostRAGInstruction()}
@@ -63,6 +71,28 @@ export async function processSceneRAGPrompt(
 
   const reply = await passPromptToGemini(fullPrompt);
   return reply;
+}
+
+export async function processMessagesIntoScene() {
+  const totalMessageCount = await getMessageCount();
+
+  const messageThreshold = 10;
+
+  if (totalMessageCount % messageThreshold === 0) {
+    const fullPrompt = `you should respond purely with JSON representing a summary of the following messages:
+
+{"keywords": [], "text": string}
+
+The text property should by a 3-4 summary. You should extract keywords from the summary and put them in the keywords array. All keywords should be singular.
+You should include nothing else in your message except for valid JSON. Do not wrap the JSON in markdown codeblocks and do not use \` symbols.
+${await addRecentMessages()}
+`;
+
+    const scene = await passPromptToGemini(fullPrompt);
+    return JSON.parse(scene);
+  }
+
+  return null;
 }
 
 function addGeneralInstruction() {
@@ -89,23 +119,36 @@ async function addRecentMessages() {
   return promptSegment;
 }
 
-async function addPastScenes(ragRequest: string) {
-  const { keywords, reasoning } = JSON.parse(ragRequest);
-  const scenes = retrieveScenes(keywords);
-  // console.log(`Prompt: ${prompt}\n\n Reasoning: ${reasoning}\n\n`);
-  // ${JSON.stringify(scenes)} replace dummy scene with this
-  const fullPrompt = `Past Scenes: {number: 1, text: "The hero Jethro is in a cave infested with goblins", keywords: ["cave", "goblin"]}`;
+async function addRecentScenes() {
+  const recentScenes = await findRecentScenes();
+  let promptSegment = "";
 
+  if (recentScenes.length > 0) {
+    const simpleScenes = recentScenes
+      .map((scene) => `${scene.text}`)
+      .join("\n");
+    promptSegment = `${"Recent Scenes: " + simpleScenes}`;
+  }
+
+  return promptSegment;
+}
+
+async function addPastScenes(ragRequest: string) {
+  const { keywords } = JSON.parse(ragRequest);
+  const scenes = retrieveScenes(keywords);
+
+  const fullPrompt = `Past Scenes: ${JSON.stringify(scenes)}`;
   return fullPrompt;
 }
 
 function addSceneFetchInstruction() {
   const promptSegment = `Referecing Past Scenes: If the user asks about events or story details not covered by recent messages or recent scenes, you should respond purely with JSON to request system info:
 
-{"keywords": [], "reasoning": string}
+{"keywords": []}
 
 You should extract keywords from the user's prompt, and put them in the keywords array. All keywords should be singular.
-If you are requesting system info, you should include nothing else in your message except for this JSON. Do not wrap your response in markdown.`;
+If you are requesting system info, you should include nothing else in your message except for this JSON. Do not wrap the JSON in markdown codeblocks and do not use \` symbols.
+You should only use this feature if you need to. If you can answer the user's question with recent scenes and recent messages, do that.`;
 
   return promptSegment;
 }

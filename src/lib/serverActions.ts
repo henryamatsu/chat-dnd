@@ -6,6 +6,7 @@ import {
   createMessage,
   findRecentMessages,
 } from "./controllers/messageController";
+import { createScene } from "./controllers/sceneController";
 
 export async function getRecentMessages() {
   const messages = await findRecentMessages();
@@ -23,6 +24,7 @@ export async function queryMessageReply(text: string) {
   await createMessage(reply, "chatbot");
 
   const messages = await getRecentMessages();
+  await createScene();
 
   return messages;
 }
