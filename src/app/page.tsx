@@ -1,9 +1,13 @@
+import CharacterSheet from "@/components/CharacterSheet";
 import MessageFeed from "@/components/MessageFeed";
 
 export default function Home() {
   return (
     <main>
-      <MessageFeed />
+      <div className="flex">
+        <MessageFeed />
+        <CharacterSheet />
+      </div>
     </main>
   );
 }

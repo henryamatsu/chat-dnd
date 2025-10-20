@@ -2,6 +2,7 @@
 // I'm basically going to treat this as a router file, and put the business logic in a separate controller file(s)
 
 import { processGeneralPrompt, processSceneRAGPrompt } from "./AI/gemini";
+import { findCharacterById } from "./controllers/characterController";
 import {
   createMessage,
   findRecentMessages,
@@ -27,4 +28,10 @@ export async function queryMessageReply(text: string) {
   await createScene();
 
   return messages;
+}
+
+export async function getCharacterById(id: number) {
+  const character = await findCharacterById(id);
+
+  return character;
 }

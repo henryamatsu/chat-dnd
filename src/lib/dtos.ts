@@ -11,3 +11,10 @@ export type SceneDTO = {
   text: string;
   keywords: string[];
 };
+
+export type CharacterDTO = {
+  name: string;
+  health: number;
+  inventory: string[];
+  abilities: string[];
+};

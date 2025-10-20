@@ -1,5 +1,11 @@
-import { Message, Scene, SceneKeyword, Keyword } from "@/generated/prisma";
-import { MessageDTO, SceneDTO } from "./dtos";
+import {
+  Message,
+  Scene,
+  SceneKeyword,
+  Keyword,
+  Character,
+} from "@/generated/prisma";
+import { CharacterDTO, MessageDTO, SceneDTO } from "./dtos";
 
 export function mapMessageToDTO(message: Message) {
   const dto: MessageDTO = {
@@ -18,6 +24,21 @@ export function mapSceneToDTO(
     id: scene.id,
     text: scene.text,
     keywords: scene.keywords.map((entry) => entry.keyword.text),
+  };
+
+  return dto;
+}
+
+export function mapCharacterToDTO(character: Character): CharacterDTO {
+  const dto: CharacterDTO = {
+    name: character.name,
+    health: character.health,
+    inventory: Array.isArray(character.inventory)
+      ? (character.inventory as string[])
+      : [],
+    abilities: Array.isArray(character.abilities)
+      ? (character.abilities as string[])
+      : [],
   };
 
   return dto;

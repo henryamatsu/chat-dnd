@@ -50,3 +50,12 @@ model SceneKeyword {
 
   @@id([sceneId, keywordId]) // composite primary key
 }
+
+model Character {
+  id        Int      @id @default(autoincrement())
+  campaignId Int
+  name      String
+  health    Int      @default(20)
+  inventory Json     @default("[]")
+  abilities Json     @default("[]")
+}
