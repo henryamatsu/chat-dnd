@@ -32,7 +32,7 @@ export default function CharacterSheet() {
             {character.inventory.length > 0 ? (
               character.inventory.map((item, index) => (
                 <li key={index} className="text-sm">
-                  • {item}
+                  • {item.name}: {item.count}
                 </li>
               ))
             ) : (

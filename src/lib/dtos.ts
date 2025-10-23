@@ -15,6 +15,11 @@ export type SceneDTO = {
 export type CharacterDTO = {
   name: string;
   health: number;
-  inventory: string[];
+  inventory: ItemDTO[];
   abilities: string[];
+};
+
+export type ItemDTO = {
+  name: string;
+  count: number;
 };

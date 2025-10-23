@@ -3,8 +3,18 @@ import {
   getMessageCount,
   findRecentMessages,
 } from "../controllers/messageController";
-import { retrieveScenes } from "../rag";
+import { manageInventory, retrieveScenes } from "../rag";
 import { findRecentScenes } from "../controllers/sceneController";
+import {
+  addGeneralInstruction,
+  addInventoryFetchInstruction,
+  addJSONResponseInstruction,
+  addPostInventoryFetchInstruction,
+  addPostSceneFetchInstruction,
+  addSceneFetchInstruction,
+} from "./promptSegments";
+import { removeInventory } from "../controllers/characterController";
+import { InventoryCommands } from "../types";
 
 const MODEL_CODE = "gemini-2.5-flash-lite";
 
@@ -45,32 +55,81 @@ async function* passPromptToGeminiStreaming(prompt: string) {
   }
 }
 
-export async function processGeneralPrompt(prompt: string) {
-  const fullPrompt = `${addGeneralInstruction()}
-  ${addSceneFetchInstruction()}
+async function addGeneralPrefix(prompt: string) {
+  const promptSegment = `${addGeneralInstruction()}
+  ${addCurrentPrompt(prompt)}
   ${await addRecentScenes()}
-  ${await addRecentMessages()}
-  ${addCurrentPrompt(prompt)}`;
+  ${await addRecentMessages()}`;
 
-  const reply = await passPromptToGemini(fullPrompt);
+  return promptSegment;
+}
+
+export async function processGeneralPrompt(prompt: string) {
+  const fullPrompt = `${await addGeneralPrefix(prompt)}
+  ${addSceneFetchInstruction()}
+  ${addInventoryFetchInstruction()}
+  ${addJSONResponseInstruction()}
+`;
+
+  console.log("Initial Prompt: ", fullPrompt);
+
+  let reply = await passPromptToGemini(fullPrompt);
+
+  console.log("Initial Reply: ", reply);
+
+  let count = 0;
+  while (reply.startsWith("{") || reply.startsWith("```json")) {
+    if (count >= 3) break;
+    count++;
+
+    console.log("Layered System Requests: ", count);
+
+    if (reply.startsWith("```json")) {
+      reply = reply.slice(7, reply.length - 3).trim();
+    }
+
+    reply = await triageSystemInstructions(prompt, reply);
+  }
+
   return reply;
 }
 
-export async function processSceneRAGPrompt(
-  prompt: string,
-  ragRequest: string
-) {
-  console.log("performing scene lookup");
+async function triageSystemInstructions(prompt: string, ragRequest: string) {
+  const {
+    reply,
+    items,
+    keywords,
+    inventory,
+  }: {
+    reply: string | undefined;
+    items: [{ name: string; count: number }] | undefined;
+    keywords: string[] | undefined;
+    inventory: InventoryCommands | undefined;
+  } = JSON.parse(ragRequest);
 
-  const fullPrompt = `${addGeneralInstruction()}
-  ${await addRecentScenes()}
-  ${await addRecentMessages()}
-  ${await addPastScenes(ragRequest)}
-  ${addPostRAGInstruction()}
-  ${addCurrentPrompt(prompt)}`;
+  let fullPrompt = `${await addGeneralPrefix(prompt)}`;
 
-  const reply = await passPromptToGemini(fullPrompt);
-  return reply;
+  if (keywords !== undefined) {
+    fullPrompt += `${await addPastScenesJSON(keywords)}
+    ${addPostSceneFetchInstruction()}`;
+  }
+
+  if (inventory !== undefined) {
+    fullPrompt += `${await addInventoryJSON(inventory)}
+    ${addPostInventoryFetchInstruction()}`;
+  }
+
+  if (items !== undefined) {
+    await removeInventory(1, items);
+  }
+
+  if (reply !== undefined) {
+    return reply;
+  }
+
+  console.log("system assistance: ", fullPrompt);
+
+  return await passPromptToGemini(fullPrompt);
 }
 
 export async function processMessagesIntoScene() {
@@ -95,10 +154,10 @@ ${await addRecentMessages()}
   return null;
 }
 
-function addGeneralInstruction() {
-  const promptSegment = `You are the game master for a ttrpg.`;
-  return promptSegment;
-}
+export async function processInventoryManagement(
+  prompt: string,
+  ragRequest: string
+) {}
 
 function addCurrentPrompt(prompt: string) {
   const promptSegment = `Current Prompt: ${prompt}`;
@@ -133,32 +192,24 @@ async function addRecentScenes() {
   return promptSegment;
 }
 
-async function addPastScenes(ragRequest: string) {
-  const { keywords } = JSON.parse(ragRequest);
+async function addPastScenesJSON(keywords: string[]) {
   const scenes = retrieveScenes(keywords);
 
-  const fullPrompt = `Past Scenes: ${JSON.stringify(scenes)}`;
-  return fullPrompt;
+  const promptSegment = `Past Scenes: ${JSON.stringify(scenes)}`;
+  return promptSegment;
 }
 
-function addSceneFetchInstruction() {
-  const promptSegment = `Referecing Past Scenes: If the user asks about events or story details not covered by recent messages or recent scenes, you should respond purely with JSON to request system info:
-
-{"keywords": []}
-
-You should extract keywords from the user's prompt, and put them in the keywords array. All keywords should be singular.
-If you are requesting system info, you should include nothing else in your message except for this JSON. Do not wrap the JSON in markdown codeblocks and do not use \` symbols.
-You should only use this feature if you need to. If you can answer the user's question with recent scenes and recent messages, do that.`;
+async function addInventoryJSON(commands: InventoryCommands) {
+  const promptSegment = await manageInventory(commands);
 
   return promptSegment;
 }
 
-function addPostRAGInstruction() {
-  const promptSegment = `Inventing Details: If the user asks events or story details not covered by recent messages, recent scenes or past scenes, you should do the following:
-1. if the player is asking about the current scene, invent details
-2. If the player is asking about past events, say you don't know`;
+/*
+Alright, here's big brain. We literally just send inventory, ask the AI to see if the item being talked about in recent messages is in the inventory list.
+The reason it has to be in AI checking is in case there is a loose match. In
 
-  return promptSegment;
-}
 
-function addActionDifficultyInstruction() {}
+
+
+*/
