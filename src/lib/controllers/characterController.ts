@@ -16,7 +16,7 @@ export async function findCharacterById(id: number) {
   return dto;
 }
 
-export async function checkInventory(id: number) {
+export async function getInventory(id: number) {
   const character = await prisma.character.findUnique({
     where: { id },
   });
@@ -27,7 +27,7 @@ export async function checkInventory(id: number) {
   return inventory;
 }
 
-export async function addInventory(id: number, items: ItemDTO[]) {
+export async function addToInventory(id: number, items: ItemDTO[]) {
   const character = await prisma.character.findUnique({
     where: { id },
   });
@@ -57,7 +57,7 @@ export async function addInventory(id: number, items: ItemDTO[]) {
   return updatedCharacter.inventory;
 }
 
-export async function removeInventory(id: number, items: ItemDTO[]) {
+export async function removeFromInventory(id: number, items: ItemDTO[]) {
   const character = await prisma.character.findUnique({
     where: { id },
   });
@@ -87,6 +87,17 @@ export async function removeInventory(id: number, items: ItemDTO[]) {
     where: { id },
     data: { inventory },
   });
+}
+
+export async function getAbilities(id: number) {
+  const character = await prisma.character.findUnique({
+    where: { id },
+  });
+
+  if (!character) throw new Error("character not found");
+
+  const abilities = JSON.stringify(character.abilities);
+  return abilities;
 }
 
 export async function inspectCharacterAbilities(id: number) {

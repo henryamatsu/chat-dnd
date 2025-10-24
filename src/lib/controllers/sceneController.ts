@@ -58,6 +58,8 @@ export async function findRecentScenes() {
 }
 
 export async function findScenesByKeyword(keywords: string[]) {
+  const sceneCount = 10;
+
   const scenes = await prisma.scene.findMany({
     where: {
       keywords: {
@@ -66,6 +68,7 @@ export async function findScenesByKeyword(keywords: string[]) {
         },
       },
     },
+    take: sceneCount,
     include: { keywords: { include: { keyword: true } } },
   });
 
@@ -73,6 +76,8 @@ export async function findScenesByKeyword(keywords: string[]) {
 }
 
 export async function findScenesByKeywordRanked(keywords: string[]) {
+  const sceneCount = 10;
+
   // Fetch all scenes that have at least one of the keywords
   const scenes = await prisma.scene.findMany({
     where: {
@@ -82,6 +87,7 @@ export async function findScenesByKeywordRanked(keywords: string[]) {
         },
       },
     },
+    take: sceneCount,
     include: { keywords: { include: { keyword: true } } },
   });
 
@@ -172,5 +178,3 @@ export async function sceneUpload() {
     });
   }
 }
-
-// sceneUpload();

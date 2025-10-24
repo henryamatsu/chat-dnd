@@ -3,17 +3,23 @@ import {
   getMessageCount,
   findRecentMessages,
 } from "../controllers/messageController";
-import { manageInventory, retrieveScenes } from "../rag";
-import { findRecentScenes } from "../controllers/sceneController";
+import {
+  findRecentScenes,
+  findScenesByKeyword,
+} from "../controllers/sceneController";
 import {
   addGeneralInstruction,
-  addInventoryFetchInstruction,
+  addInventoryUpdateInstruction,
   addJSONResponseInstruction,
-  addPostInventoryFetchInstruction,
   addPostSceneFetchInstruction,
   addSceneFetchInstruction,
 } from "./promptSegments";
-import { removeInventory } from "../controllers/characterController";
+import {
+  addToInventory,
+  getAbilities,
+  getInventory,
+  removeFromInventory,
+} from "../controllers/characterController";
 import { InventoryCommands } from "../types";
 
 const MODEL_CODE = "gemini-2.5-flash-lite";
@@ -58,8 +64,11 @@ async function* passPromptToGeminiStreaming(prompt: string) {
 async function addGeneralPrefix(prompt: string) {
   const promptSegment = `${addGeneralInstruction()}
   ${addCurrentPrompt(prompt)}
+  ${addJSONResponseInstruction()}
   ${await addRecentScenes()}
-  ${await addRecentMessages()}`;
+  ${await addRecentMessages()}
+  ${await addInventory()}
+  ${await addAbilities()}`;
 
   return promptSegment;
 }
@@ -67,15 +76,10 @@ async function addGeneralPrefix(prompt: string) {
 export async function processGeneralPrompt(prompt: string) {
   const fullPrompt = `${await addGeneralPrefix(prompt)}
   ${addSceneFetchInstruction()}
-  ${addInventoryFetchInstruction()}
-  ${addJSONResponseInstruction()}
+  ${addInventoryUpdateInstruction()}
 `;
 
-  console.log("Initial Prompt: ", fullPrompt);
-
   let reply = await passPromptToGemini(fullPrompt);
-
-  console.log("Initial Reply: ", reply);
 
   let count = 0;
   while (reply.startsWith("{") || reply.startsWith("```json")) {
@@ -96,15 +100,13 @@ export async function processGeneralPrompt(prompt: string) {
 
 async function triageSystemInstructions(prompt: string, ragRequest: string) {
   const {
-    reply,
-    items,
     keywords,
     inventory,
+    reply,
   }: {
-    reply: string | undefined;
-    items: [{ name: string; count: number }] | undefined;
     keywords: string[] | undefined;
     inventory: InventoryCommands | undefined;
+    reply: string;
   } = JSON.parse(ragRequest);
 
   let fullPrompt = `${await addGeneralPrefix(prompt)}`;
@@ -115,19 +117,10 @@ async function triageSystemInstructions(prompt: string, ragRequest: string) {
   }
 
   if (inventory !== undefined) {
-    fullPrompt += `${await addInventoryJSON(inventory)}
-    ${addPostInventoryFetchInstruction()}`;
-  }
-
-  if (items !== undefined) {
-    await removeInventory(1, items);
-  }
-
-  if (reply !== undefined) {
+    console.log(inventory);
+    await processInventoryUpdates(inventory);
     return reply;
   }
-
-  console.log("system assistance: ", fullPrompt);
 
   return await passPromptToGemini(fullPrompt);
 }
@@ -154,10 +147,14 @@ ${await addRecentMessages()}
   return null;
 }
 
-export async function processInventoryManagement(
-  prompt: string,
-  ragRequest: string
-) {}
+async function processInventoryUpdates({ add, remove }: InventoryCommands) {
+  if (add && add.length > 0) {
+    await addToInventory(1, add);
+  }
+  if (remove && remove.length > 0) {
+    await removeFromInventory(1, remove);
+  }
+}
 
 function addCurrentPrompt(prompt: string) {
   const promptSegment = `Current Prompt: ${prompt}`;
@@ -193,23 +190,33 @@ async function addRecentScenes() {
 }
 
 async function addPastScenesJSON(keywords: string[]) {
-  const scenes = retrieveScenes(keywords);
-
+  const scenes = await findScenesByKeyword(keywords);
   const promptSegment = `Past Scenes: ${JSON.stringify(scenes)}`;
   return promptSegment;
 }
 
-async function addInventoryJSON(commands: InventoryCommands) {
-  const promptSegment = await manageInventory(commands);
+async function addInventory() {
+  const inventory = await getInventory(1);
+  let promptSegment = "Inventory: ";
+
+  if (inventory.length > 0) {
+    promptSegment += inventory;
+  } else promptSegment += "<EMPTY>";
+
+  // promptSegment += addInventoryUseInstruction();
 
   return promptSegment;
 }
 
-/*
-Alright, here's big brain. We literally just send inventory, ask the AI to see if the item being talked about in recent messages is in the inventory list.
-The reason it has to be in AI checking is in case there is a loose match. In
+async function addAbilities() {
+  const abilities = await getAbilities(1);
+  let promptSegment = "Abilities: ";
 
+  if (abilities.length > 0) {
+    promptSegment += abilities;
+  } else promptSegment += "<NONE>";
 
+  // promptSegment += addAbilityUseInstruction();
 
-
-*/
+  return promptSegment;
+}
